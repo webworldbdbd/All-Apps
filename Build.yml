@@ -1,0 +1,55 @@
+name: Build CineNova APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: |
+          mkdir -p proj
+          unzip -q CineNova_Source.zip -d proj
+          # project root may be the zip root or a single sub-folder
+          if [ ! -f proj/gradlew ]; then
+            d=$(find proj -maxdepth 2 -name gradlew -printf '%h\n' | head -n1)
+            echo "PROJECT_DIR=$d" >> $GITHUB_ENV
+          else
+            echo "PROJECT_DIR=proj" >> $GITHUB_ENV
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Prepare Android SDK (preinstalled on runner)
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Build debug APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace --no-daemon 2>&1 | tee build.log
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CineNova-debug-apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: ${{ env.PROJECT_DIR }}/build.log
+          if-no-files-found: ignore
