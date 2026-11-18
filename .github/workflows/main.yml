@@ -9,15 +9,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unzip FileFit.zip
+      - name: Unzip FileFit zip
         run: |
-          if [ -f FileFit.zip ]; then
-            unzip -q -o FileFit.zip -d _project
-          else
-            echo "::error::FileFit.zip not found in the repo root."
+          ZIP=$(ls -t ./*.zip 2>/dev/null | head -n 1)
+          if [ -z "$ZIP" ]; then
+            echo "::error::No .zip file found in the repo root."
             ls -la
             exit 1
           fi
+          echo "Using: $ZIP"
+          unzip -q -o "$ZIP" -d _project
 
       - name: Find FileFit project folder
         id: find
