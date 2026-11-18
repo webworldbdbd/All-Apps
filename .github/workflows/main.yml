@@ -1,9 +1,12 @@
-name: Build Android AAB
+name: Build Android APK
 
 on:
   workflow_dispatch:
-  push:
-    tags: ['v*']
+
+# প্রজেক্ট সাব-ফোল্ডারে থাকলে নিচের ৩ লাইনের # তুলে নাম দিন
+# defaults:
+#   run:
+#     working-directory: filefit
 
 jobs:
   build:
@@ -26,28 +29,14 @@ jobs:
       - name: Create Android project, icons and patches
         run: node scripts/setup-android.mjs
 
-      - name: Add signing key
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::warning::No signing secrets found - the AAB will be unsigned."
-          else
-            echo "$KEYSTORE_BASE64" | base64 -d > android/upload-keystore.jks
-            printf 'storeFile=../upload-keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > android/keystore.properties
-          fi
-
-      - name: Build release bundle
+      - name: Build debug APK
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew bundleRelease
+          ./gradlew assembleDebug
 
-      - name: Upload AAB
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: filefit-release-aab
-          path: android/app/build/outputs/bundle/release/*.aab
+          name: filefit-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
