@@ -9,13 +9,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Unzip FileFit.zip
+        run: |
+          if [ -f FileFit.zip ]; then
+            unzip -q -o FileFit.zip -d _project
+          else
+            echo "::error::FileFit.zip not found in the repo root."
+            ls -la
+            exit 1
+          fi
+
       - name: Find FileFit project folder
         id: find
         run: |
           FILE=$(grep -rl --include=package.json '"name": "filefit"' . --exclude-dir=node_modules | head -n 1)
           if [ -z "$FILE" ]; then
-            echo "::error::FileFit package.json not found. Upload the EXTRACTED files (not the .zip) to the repo."
-            ls -la
+            echo "::error::FileFit package.json not found after unzip."
+            find . -maxdepth 3 -not -path './.git/*' | head -50
             exit 1
           fi
           DIR=$(dirname "$FILE")
