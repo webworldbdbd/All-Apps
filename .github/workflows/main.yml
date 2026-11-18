@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Test APK
 
 on:
   workflow_dispatch:
@@ -8,30 +8,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Unzip FileFit zip
-        run: |
-          ZIP=$(ls -t ./*.zip 2>/dev/null | head -n 1)
-          if [ -z "$ZIP" ]; then
-            echo "::error::No .zip file found in the repo root."
-            ls -la
-            exit 1
-          fi
-          echo "Using: $ZIP"
-          unzip -q -o "$ZIP" -d _project
-
-      - name: Find FileFit project folder
-        id: find
-        run: |
-          FILE=$(grep -rl --include=package.json '"name": "filefit"' . --exclude-dir=node_modules | head -n 1)
-          if [ -z "$FILE" ]; then
-            echo "::error::FileFit package.json not found after unzip."
-            find . -maxdepth 3 -not -path './.git/*' | head -50
-            exit 1
-          fi
-          DIR=$(dirname "$FILE")
-          echo "Project folder: $DIR"
-          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v4
         with:
@@ -43,15 +19,13 @@ jobs:
           java-version: 21
 
       - name: Install dependencies
-        working-directory: ${{ steps.find.outputs.dir }}
         run: npm install
 
       - name: Create Android project, icons and patches
-        working-directory: ${{ steps.find.outputs.dir }}
         run: node scripts/setup-android.mjs
 
       - name: Build debug APK
-        working-directory: ${{ steps.find.outputs.dir }}/android
+        working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -59,5 +33,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: filefit-debug-apk
-          path: ${{ steps.find.outputs.dir }}/android/app/build/outputs/apk/debug/app-debug.apk
+          name: filefit-test-apk
+          path: android/app/build/outputs/apk/debug/*.apk
