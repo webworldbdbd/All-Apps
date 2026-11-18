@@ -3,16 +3,24 @@ name: Build Android APK
 on:
   workflow_dispatch:
 
-# প্রজেক্ট সাব-ফোল্ডারে থাকলে নিচের ৩ লাইনের # তুলে নাম দিন
-# defaults:
-#   run:
-#     working-directory: filefit
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Find FileFit project folder
+        id: find
+        run: |
+          FILE=$(grep -rl --include=package.json '"name": "filefit"' . --exclude-dir=node_modules | head -n 1)
+          if [ -z "$FILE" ]; then
+            echo "::error::FileFit package.json not found. Upload the EXTRACTED files (not the .zip) to the repo."
+            ls -la
+            exit 1
+          fi
+          DIR=$(dirname "$FILE")
+          echo "Project folder: $DIR"
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v4
         with:
@@ -24,13 +32,15 @@ jobs:
           java-version: 21
 
       - name: Install dependencies
+        working-directory: ${{ steps.find.outputs.dir }}
         run: npm install
 
       - name: Create Android project, icons and patches
+        working-directory: ${{ steps.find.outputs.dir }}
         run: node scripts/setup-android.mjs
 
       - name: Build debug APK
-        working-directory: android
+        working-directory: ${{ steps.find.outputs.dir }}/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -39,4 +49,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: filefit-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ steps.find.outputs.dir }}/android/app/build/outputs/apk/debug/app-debug.apk
