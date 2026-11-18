@@ -6,6 +6,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: filefit
     steps:
       - uses: actions/checkout@v4
 
@@ -25,7 +28,7 @@ jobs:
         run: node scripts/setup-android.mjs
 
       - name: Build debug APK
-        working-directory: android
+        working-directory: filefit/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -34,4 +37,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: filefit-test-apk
-          path: android/app/build/outputs/apk/debug/*.apk
+          path: filefit/android/app/build/outputs/apk/debug/*.apk
