@@ -6,11 +6,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: filefit
     steps:
       - uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: |
+          ZIP=$(find . -maxdepth 1 -iname "FileFit*.zip" | head -1)
+          if [ -z "$ZIP" ]; then echo "FileFit zip not found"; ls -la; exit 1; fi
+          mkdir -p project
+          unzip -q "$ZIP" -d project
+          CFG=$(find project -name capacitor.config.json -not -path "*/node_modules/*" | head -1)
+          if [ -z "$CFG" ]; then echo "capacitor.config.json not found"; find project -maxdepth 3 | head -50; exit 1; fi
+          DIR=$(dirname "$CFG")
+          echo "Project folder: $DIR"
+          echo "APP_DIR=$DIR" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v4
         with:
@@ -22,13 +31,15 @@ jobs:
           java-version: 21
 
       - name: Install dependencies
+        working-directory: ${{ env.APP_DIR }}
         run: npm install
 
       - name: Create Android project, icons and patches
+        working-directory: ${{ env.APP_DIR }}
         run: node scripts/setup-android.mjs
 
       - name: Build debug APK
-        working-directory: filefit/android
+        working-directory: ${{ env.APP_DIR }}/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -37,4 +48,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: filefit-test-apk
-          path: filefit/android/app/build/outputs/apk/debug/*.apk
+          path: ${{ env.APP_DIR }}/android/app/build/outputs/apk/debug/*.apk
