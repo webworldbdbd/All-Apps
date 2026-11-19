@@ -1,6 +1,8 @@
-name: Build Test APK
+name: Build CineNova APK
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -11,41 +13,42 @@ jobs:
 
       - name: Unzip project
         run: |
-          ZIP=$(find . -maxdepth 1 -iname "FileFit*.zip" | head -1)
-          if [ -z "$ZIP" ]; then echo "FileFit zip not found"; ls -la; exit 1; fi
-          mkdir -p project
-          unzip -q "$ZIP" -d project
-          CFG=$(find project -name capacitor.config.json -not -path "*/node_modules/*" | head -1)
-          if [ -z "$CFG" ]; then echo "capacitor.config.json not found"; find project -maxdepth 3 | head -50; exit 1; fi
-          DIR=$(dirname "$CFG")
-          echo "Project folder: $DIR"
-          echo "APP_DIR=$DIR" >> "$GITHUB_ENV"
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
+          mkdir -p proj
+          unzip -q CineNova_Source.zip -d proj
+          if [ ! -f proj/gradlew ]; then
+            d=$(find proj -maxdepth 2 -name gradlew -printf '%h\n' | head -n1)
+            echo "PROJECT_DIR=$d" >> $GITHUB_ENV
+          else
+            echo "PROJECT_DIR=proj" >> $GITHUB_ENV
+          fi
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: '17'
 
-      - name: Install dependencies
-        working-directory: ${{ env.APP_DIR }}
-        run: npm install
-
-      - name: Create Android project, icons and patches
-        working-directory: ${{ env.APP_DIR }}
-        run: node scripts/setup-android.mjs
+      - name: Prepare Android SDK (preinstalled on runner)
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
       - name: Build debug APK
-        working-directory: ${{ env.APP_DIR }}/android
+        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --stacktrace --no-daemon 2>&1 | tee build.log
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: filefit-test-apk
-          path: ${{ env.APP_DIR }}/android/app/build/outputs/apk/debug/*.apk
+          name: CineNova-debug-apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: ${{ env.PROJECT_DIR }}/build.log
+          if-no-files-found: ignore
