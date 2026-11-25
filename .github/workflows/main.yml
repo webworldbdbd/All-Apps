@@ -11,6 +11,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Unzip and find the SARP AI project
+        id: find
+        run: |
+          src="."
+          z=$(find . -path ./.git -prune -o -name 'SarpAI-Android-Project*.zip' -print | head -n 1)
+          if [ -n "$z" ]; then
+            mkdir -p "$GITHUB_WORKSPACE/_sarp"
+            unzip -q -o "$z" -d "$GITHUB_WORKSPACE/_sarp"
+            src="$GITHUB_WORKSPACE/_sarp"
+          fi
+          f=$(find "$src" -path "$src/.git" -prune -o -name AgentOverlayService.kt -print | head -n 1)
+          if [ -z "$f" ]; then
+            echo "SARP AI source files were not found."
+            exit 1
+          fi
+          dir="${f%/app/src/main/java/*}"
+          echo "Project folder: $dir"
+          ls -A "$dir"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -21,10 +41,12 @@ jobs:
           gradle-version: '8.7'
 
       - name: Build release APK
+        working-directory: ${{ steps.find.outputs.dir }}
         run: gradle :app:assembleRelease --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: SarpAI-APK
-          path: app/build/outputs/apk/release/*.apk
+          path: ${{ steps.find.outputs.dir }}/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
