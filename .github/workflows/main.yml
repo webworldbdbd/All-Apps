@@ -15,7 +15,12 @@ jobs:
         id: find
         run: |
           src="."
-          z=$(find . -path ./.git -prune -o -name 'SarpAI-Android-Project*.zip' -print | head -n 1)
+          z=""
+          for p in 'SarpAI-Master*.zip' 'SarpAI-Step3*.zip' 'SarpAI-Step2*.zip' 'SarpAI-Step1*.zip' 'SarpAI-Android-Project*.zip'; do
+            z=$(find . -path ./.git -prune -o -name "$p" -print | head -n 1)
+            if [ -n "$z" ]; then break; fi
+          done
+          echo "Using ZIP: ${z:-none (project files are in the repository)}"
           if [ -n "$z" ]; then
             mkdir -p "$GITHUB_WORKSPACE/_sarp"
             unzip -q -o "$z" -d "$GITHUB_WORKSPACE/_sarp"
